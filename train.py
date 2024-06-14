@@ -5,6 +5,8 @@ from tiktoken import get_encoding as encode_tok
 
 # Constants
 FILENAME = 'input.txt'
+BLOCK_SIZE = 8
+BATCH_SIZE = 4
 
 # Encoding Character datastructures
 STOI = {}
@@ -35,6 +37,14 @@ def decode(input: str):
     return output
 
 
+def get_minibatch(data):
+    ix = torch.randint(len(data)-BLOCK_SIZE, (BATCH_SIZE,))
+    x=[]
+    y=[]
+    for i in ix:
+        x.append(data[i:i+BLOCK_SIZE])
+        y.append(data[i+1:i+BLOCK_SIZE+1])
+    return torch.stack(x), torch.stack(y)
 
 if __name__ == '__main__':
     # load data set
@@ -54,7 +64,12 @@ if __name__ == '__main__':
     # Divide data
     data = torch.tensor(encode(file_data), dtype=torch.long)
     dataTrain, dataVal, dataTest = get_data_sets(data)
-    print(dataTrain.shape)
+    
+    #training 
+    xtrain, ytrain = get_minibatch(dataTrain)
+
+
+    
 
     
 
