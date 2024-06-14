@@ -103,14 +103,19 @@ if __name__ == '__main__':
     data = torch.tensor(encode(file_data), dtype=torch.long)
     dataTrain, dataVal, dataTest = get_data_sets(data)
     
-    input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
-    #training 
+    
+    
+    # Defining Model 
     m = BigramModel(vocab_size).to(DEVICE)
+    
+    # Pre-training generation
+    input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE) # Define a (1, 1) tensor with value 0 for starting char
     print(decode(m.generate(input_test, 500)[0].tolist()))
+    
+    # Training Model
     train_model(m, dataTrain, eval=False)
 
-    # Generation
-    # input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
+    # Post-training generation
     print(decode(m.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
     
     
