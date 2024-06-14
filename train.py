@@ -1,5 +1,10 @@
+import sys
 import torch
+import torch.nn as nn
+from torch.nn import functional as F
 from tiktoken import get_encoding as encode_tok
+
+from model import BigramModel
 
 # !wget dataset
 
@@ -12,11 +17,24 @@ BATCH_SIZE = 4
 STOI = {}
 ITOS = {}
 
-# Input processing
+# Data processing
 def extract_data(filename: str):
     with open(filename, 'r', encoding='utf-8') as f:
         text = f.read()
     return text
+
+def load_data(filename=FILENAME):
+    # load data set
+    file_data = extract_data(filename)
+    
+    # get unique characters in input and fill encoding table
+    chars = sorted(list(set(file_data)))
+    vocab_size = len(chars)
+    for i, ch in enumerate(chars):
+        STOI[ch] = i
+        ITOS[i] = ch
+    
+    return file_data
 
 def get_data_sets(data):
     dataTrain = data[:int((len(data)*0.8))]
@@ -24,6 +42,17 @@ def get_data_sets(data):
     dataTest = data[int((len(data)*0.9)):]
     return dataTrain, dataVal, dataTest
 
+def get_minibatch(data):
+    ix = torch.randint(len(data)-BLOCK_SIZE, (BATCH_SIZE,))
+    x=[]
+    y=[]
+    for i in ix:
+        x.append(data[i:i+BLOCK_SIZE])
+        y.append(data[i+1:i+BLOCK_SIZE+1])
+    return torch.stack(x), torch.stack(y)
+
+
+# Encoding tokens
 def encode(input: str):
     output = []
     for ch in input:
@@ -37,26 +66,13 @@ def decode(input: str):
     return output
 
 
-def get_minibatch(data):
-    ix = torch.randint(len(data)-BLOCK_SIZE, (BATCH_SIZE,))
-    x=[]
-    y=[]
-    for i in ix:
-        x.append(data[i:i+BLOCK_SIZE])
-        y.append(data[i+1:i+BLOCK_SIZE+1])
-    return torch.stack(x), torch.stack(y)
 
 if __name__ == '__main__':
-    # load data set
-    file_data = extract_data(FILENAME)
+    if len(sys.argv) == 1:
+        file_data= load_data()
+    else:
+        file_data = load_data(sys.argv[1])
     
-    # get unique characters in input and fill encoding table
-    chars = sorted(list(set(file_data)))
-    vocab_size = len(chars)
-    for i, ch in enumerate(chars):
-        STOI[ch] = i
-        ITOS[i] = ch
-
     # Using alternative encoders as easy as:
     enc = encode_tok('gpt2')
     # print(enc.decode(enc.encode('hello world')))
@@ -67,6 +83,8 @@ if __name__ == '__main__':
     
     #training 
     xtrain, ytrain = get_minibatch(dataTrain)
+    
+
 
 
     
