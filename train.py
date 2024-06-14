@@ -13,6 +13,11 @@ FILENAME = 'input.txt'
 BLOCK_SIZE = 8
 BATCH_SIZE = 32
 TRAINING_ITERATIONS = 1000
+EVAL_ITERATIONS = 100
+EVAL_INTERVAL = 100
+LEARNING_RATE = 1e-2
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 
 # Encoding Character datastructures
 STOI = {}
@@ -50,7 +55,9 @@ def get_minibatch(data):
     for i in ix:
         x.append(data[i:i+BLOCK_SIZE])
         y.append(data[i+1:i+BLOCK_SIZE+1])
-    return torch.stack(x), torch.stack(y)
+    x, y = torch.stack(x), torch.stack(y)
+    x, y = x.to(DEVICE), y.to(DEVICE)
+    return x, y
 
 
 # Encoding tokens
@@ -68,13 +75,13 @@ def decode(input: str):
 
 
 # Training
-def train_model(m, data):
-    optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+def train_model(m, data, eval=False):
+    optimizer = torch.optim.AdamW(m.parameters(), lr=LEARNING_RATE)
     for iteration in range(TRAINING_ITERATIONS):
         x, y = get_minibatch(data)
         logits, loss = m(x, y)
 
-        if iteration % 10:
+        if eval and (iteration % 10):
             print("Iteration {} : Loss = {}".format(iteration, loss))
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -96,9 +103,15 @@ if __name__ == '__main__':
     data = torch.tensor(encode(file_data), dtype=torch.long)
     dataTrain, dataVal, dataTest = get_data_sets(data)
     
+    input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
     #training 
-    m = BigramModel(vocab_size)
-    train_model(m, dataTrain)
+    m = BigramModel(vocab_size).to(DEVICE)
+    print(decode(m.generate(input_test, 500)[0].tolist()))
+    train_model(m, dataTrain, eval=False)
+
+    # Generation
+    # input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
+    print(decode(m.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
     
     
 
