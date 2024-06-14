@@ -75,17 +75,38 @@ def decode(input: str):
 
 
 # Training
-def train_model(m, data, eval=False):
-    optimizer = torch.optim.AdamW(m.parameters(), lr=LEARNING_RATE)
+def train_model(model, data, eval=False):
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     for iteration in range(TRAINING_ITERATIONS):
         x, y = get_minibatch(data)
-        logits, loss = m(x, y)
-
+        logits, loss = model(x, y)
         if eval and (iteration % 10):
             print("Iteration {} : Loss = {}".format(iteration, loss))
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+
+@torch.no_grad()
+def estimate_loss(model, dataTrain, dataVal):
+    out = {}
+    model.eval()
+    for split in ['train', 'val']:
+        if split == 'train':
+            losses = torch.zeros(EVAL_ITERATIONS)
+            for k in range(EVAL_ITERATIONS):
+                x, y = get_minibatch(dataTrain)
+                logits, loss = model(x, y)
+                losses[k] = loss.item
+            out[split] = losses.mean()
+        else:
+            losses = torch.zeros(EVAL_ITERATIONS)
+            for k in range(EVAL_ITERATIONS):
+                x, y = get_minibatch(dataVal)
+                logits, loss = model(x, y)
+                losses[k] = loss.item
+            out[split] = losses.mean()
+    model.train()
+    return out
 
 
 
@@ -106,17 +127,17 @@ if __name__ == '__main__':
     
     
     # Defining Model 
-    m = BigramModel(vocab_size).to(DEVICE)
+    model = BigramModel(vocab_size).to(DEVICE)
     
     # Pre-training generation
     input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE) # Define a (1, 1) tensor with value 0 for starting char
-    print(decode(m.generate(input_test, 500)[0].tolist()))
+    print(decode(model.generate(input_test, 500)[0].tolist()))
     
     # Training Model
-    train_model(m, dataTrain, eval=False)
+    train_model(model, dataTrain, eval=False)
 
     # Post-training generation
-    print(decode(m.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
+    print(decode(model.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
     
     
 
