@@ -11,7 +11,8 @@ from model import BigramModel
 # Constants
 FILENAME = 'input.txt'
 BLOCK_SIZE = 8
-BATCH_SIZE = 4
+BATCH_SIZE = 32
+TRAINING_ITERATIONS = 1000
 
 # Encoding Character datastructures
 STOI = {}
@@ -34,7 +35,7 @@ def load_data(filename=FILENAME):
         STOI[ch] = i
         ITOS[i] = ch
     
-    return file_data
+    return file_data, vocab_size
 
 def get_data_sets(data):
     dataTrain = data[:int((len(data)*0.8))]
@@ -66,12 +67,26 @@ def decode(input: str):
     return output
 
 
+# Training
+def train_model(m, data):
+    optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+    for iteration in range(TRAINING_ITERATIONS):
+        x, y = get_minibatch(data)
+        logits, loss = m(x, y)
+
+        if iteration % 10:
+            print("Iteration {} : Loss = {}".format(iteration, loss))
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+
+
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        file_data= load_data()
+        file_data, vocab_size = load_data()
     else:
-        file_data = load_data(sys.argv[1])
+        file_data, vocab_size = load_data(sys.argv[1])
     
     # Using alternative encoders as easy as:
     enc = encode_tok('gpt2')
@@ -82,7 +97,9 @@ if __name__ == '__main__':
     dataTrain, dataVal, dataTest = get_data_sets(data)
     
     #training 
-    xtrain, ytrain = get_minibatch(dataTrain)
+    m = BigramModel(vocab_size)
+    train_model(m, dataTrain)
+    
     
 
 
