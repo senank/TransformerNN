@@ -11,17 +11,13 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Model Constants
 BATCH_SIZE = 64
-n_emb = 512
+n_emb = 320
 BLOCK_SIZE = 256
 DROPOUT = 0.15
 
 #Attention
 N_ATTENTION_LAYERS = 6
-HEAD_COUNT = 8 # n_emb / head_count = 64 dimensions for each head
-
-
-
-
+HEAD_COUNT = 5 # n_emb / head_count = 64 dimensions for each head
 
 
 ### MODELS ###

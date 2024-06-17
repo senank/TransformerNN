@@ -111,7 +111,9 @@ def estimate_loss(model, dataTrain, dataVal):
     model.train()
     return out
 
-
+def test_generation(input_test, output_length):
+    print(decode(model.generate(input_test, output_length)[0].tolist())) # must index [0] to pluck out from (1, T)
+    print("\n")
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
@@ -133,14 +135,16 @@ if __name__ == '__main__':
     model = BigramModel(vocab_size, N_ATTENTION_LAYERS).to(DEVICE)
     
     # Pre-training generation
+    print('\n########################\nPRE-training generation:\n########################')
     input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE) # Define a (1, 1) tensor with value 0 for starting char
-    print(decode(model.generate(input_test, 500)[0].tolist()))
-    
+    test_generation(input_test, 500)
+
     # Training Model
     train_model(model, dataTrain, True, dataVal)
 
     # Post-training generation
-    print(decode(model.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
+    print('\n########################\nPOST-training generation:\n########################')
+    test_generation(input_test, 1000)
     
     
 
