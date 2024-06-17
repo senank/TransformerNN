@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from tiktoken import get_encoding as encode_tok
-from norm import LayerNorm, BatchNorm
 
 from pdb import set_trace as DB
 
