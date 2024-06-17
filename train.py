@@ -16,7 +16,7 @@ BATCH_SIZE = 32
 TRAINING_ITERATIONS = 5000
 EVAL_ITERATIONS = 100
 EVAL_INTERVAL = 200
-LEARNING_RATE = 1e-2
+LEARNING_RATE = 1e-3
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 

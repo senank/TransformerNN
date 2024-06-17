@@ -18,19 +18,24 @@ class BigramModel(nn.Module):
         self.token_emb_table = nn.Embedding(vocab_size, n_emb)
         self.position_emb_table = nn.Embedding(BLOCK_SIZE, n_emb)
 
-        self.lm_head = nn.Linear(n_emb, vocab_size)
+        # self.sa_heads = AttentionHead(n_emb)
         self.sa_heads = MultiheadAttention(HEAD_COUNT, HEAD_SIZE)
+
+        self.feedforward = FeedForward(n_emb)
+        
+        self.lm_head = nn.Linear(n_emb, vocab_size)
+        
         
     
     def forward(self, idx, targets=None):
         # Simple Biagram model doesn't use any @
         token_emb = self.token_emb_table(idx)
-        pos_emb = self.position_emb_table(torch.arange(len(idx[0])))
+        pos_emb = self.position_emb_table(torch.arange(len(idx[0]), device=DEVICE))
         x = pos_emb + token_emb
 
-        # Pass through multi-headed attention block
+        # Pass through multi-headed attention block and feedforward layer
         x = self.sa_heads(x)
-        
+        x = self.feedforward(x)
         # Pass through language model
         logits = self.lm_head(x)
 
@@ -83,9 +88,21 @@ class AttentionHead(nn.Module):
 class MultiheadAttention(nn.Module):
     def __init__(self, head_count, head_size):
         super().__init__()
-        self.heads = []
+        heads = []
         for i in range(head_count):
-            self.heads.append(AttentionHead(head_size))
-    
+            heads.append(AttentionHead(head_size))
+        self.heads = nn.ModuleList(heads)
+
     def forward(self, idx):
         return torch.cat([head(idx) for head in self.heads], dim=-1)
+
+class FeedForward(nn.Module):
+    def __init__(self, n_emb):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(n_emb, n_emb),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        return self.layers(x)
