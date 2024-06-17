@@ -100,22 +100,28 @@ class AttentionHead(nn.Module):
         return out
 
 class MultiheadAttention(nn.Module):
-    def __init__(self, head_count, head_size):
+    def __init__(self, head_count, head_size, n_emb):
         super().__init__()
         heads = []
         for i in range(head_count):
             heads.append(AttentionHead(head_size))
         self.heads = nn.ModuleList(heads)
+        
+        self.proj = nn.Linear(n_emb, n_emb) # Adding residual connections
 
     def forward(self, idx):
-        return torch.cat([head(idx) for head in self.heads], dim=-1)
+        ff_output = torch.cat([head(idx) for head in self.heads], dim=-1)
+        return self.proj(ff_output)
 
 class FeedForward(nn.Module):
     def __init__(self, n_emb):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.Linear(n_emb, n_emb),
-            nn.ReLU()
+            nn.Linear(n_emb, n_emb * 4), # Note: * 4 for the residual connection
+            nn.ReLU(),
+
+            # Residual connection
+            nn.Linear(n_emb * 4, n_emb) # Note: Can be added outside of Seq as its out layer similar to MultiheadAttention implementation
         )
 
     def forward(self, x):
@@ -126,9 +132,11 @@ class Block(nn.Module):
         # n_emb: Embedding dimension, n_heads: number of heads in attention block
         super().__init__()
         head_size = n_emb // n_heads # Head size dynamically calculated based on n_emd:n_heads ratio
-        self.sa = MultiheadAttention(n_heads, head_size)
+        self.sa = MultiheadAttention(n_heads, head_size, n_emb)
         self.ff = FeedForward(n_emb)
 
     def forward(self, x):
-        x = self.sa(x)
-        return self.ff(x)
+        # Adding to make these residual connections
+        x = x + self.sa(x) 
+        x = x + self.ff(x)
+        return x
