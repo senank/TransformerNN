@@ -10,19 +10,24 @@ from pdb import set_trace as DB
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Model Constants
-n_emb = 32
-BLOCK_SIZE = 8
+BATCH_SIZE = 64
+n_emb = 512
+BLOCK_SIZE = 256
 DROPOUT = 0.15
 
 #Attention
-HEAD_COUNT = 4
+N_ATTENTION_LAYERS = 6
+HEAD_COUNT = 8 # n_emb / head_count = 64 dimensions for each head
+
+
+
 
 
 
 ### MODELS ###
 # Main models
 class BigramModel(nn.Module):
-    def __init__(self, vocab_size: int):
+    def __init__(self, vocab_size: int, n_sa_layers: int):
         super().__init__()
         self.token_emb_table = nn.Embedding(vocab_size, n_emb)
         self.position_emb_table = nn.Embedding(BLOCK_SIZE, n_emb)
@@ -40,9 +45,7 @@ class BigramModel(nn.Module):
         
 
         self.sa_blocks = nn.Sequential(
-            Block(n_emb, HEAD_COUNT),
-            Block(n_emb, HEAD_COUNT),
-            Block(n_emb, HEAD_COUNT),
+            *[Block(n_emb, HEAD_COUNT) for sa_layer in range(n_sa_layers)],
             nn.LayerNorm(n_emb)
         )
         

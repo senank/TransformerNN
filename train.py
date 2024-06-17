@@ -5,18 +5,19 @@ import torch.nn as nn
 from torch.nn import functional as F
 from tiktoken import get_encoding as encode_tok
 
-from model import BigramModel, BLOCK_SIZE, n_emb
+from model import BigramModel, BLOCK_SIZE, BATCH_SIZE, n_emb, N_ATTENTION_LAYERS
 from pdb import set_trace as DB
 
 # !wget dataset
 
 # Constants
 FILENAME = 'input.txt'
-BATCH_SIZE = 32
+
+
 TRAINING_ITERATIONS = 5000
 EVAL_ITERATIONS = 100
 EVAL_INTERVAL = 200
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 0.5e-3
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -129,7 +130,7 @@ if __name__ == '__main__':
     
     
     # Defining Model 
-    model = BigramModel(vocab_size).to(DEVICE)
+    model = BigramModel(vocab_size, N_ATTENTION_LAYERS).to(DEVICE)
     
     # Pre-training generation
     input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE) # Define a (1, 1) tensor with value 0 for starting char
