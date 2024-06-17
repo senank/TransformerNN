@@ -9,7 +9,6 @@ n_emb = 32
 BLOCK_SIZE = 8
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 HEAD_COUNT = 4
-HEAD_SIZE = n_emb//HEAD_COUNT
 
 # BigramModel
 class BigramModel(nn.Module):
@@ -18,10 +17,21 @@ class BigramModel(nn.Module):
         self.token_emb_table = nn.Embedding(vocab_size, n_emb)
         self.position_emb_table = nn.Embedding(BLOCK_SIZE, n_emb)
 
+        # # Single head of attention
         # self.sa_heads = AttentionHead(n_emb)
-        self.sa_heads = MultiheadAttention(HEAD_COUNT, HEAD_SIZE)
-
-        self.feedforward = FeedForward(n_emb)
+        # self.feedforward = FeedForward(n_emb)
+        
+        # # Multiheaded attention
+        # head_size = n_emb // HEAD_COUNT
+        # self.sa_heads = MultiheadAttention(HEAD_COUNT, head_size)
+        # self.feedforward = FeedForward(n_emb)
+        
+        # Attention block
+        self.sa_blocks = nn.Sequential(
+            Block(n_emb, HEAD_COUNT),
+            Block(n_emb, HEAD_COUNT),
+            Block(n_emb, HEAD_COUNT),
+        )
         
         self.lm_head = nn.Linear(n_emb, vocab_size)
         
@@ -33,9 +43,13 @@ class BigramModel(nn.Module):
         pos_emb = self.position_emb_table(torch.arange(len(idx[0]), device=DEVICE))
         x = pos_emb + token_emb
 
-        # Pass through multi-headed attention block and feedforward layer
-        x = self.sa_heads(x)
-        x = self.feedforward(x)
+        # # Pass through multi-headed attention block and feedforward layer
+        # x = self.sa_heads(x)
+        # x = self.feedforward(x)
+
+        # Pass through multiple multi-headed attention blocks
+        x = self.sa_blocks(x)
+
         # Pass through language model
         logits = self.lm_head(x)
 
@@ -106,3 +120,15 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
+
+class Block(nn.Module):
+    def __init__(self, n_emb, n_heads):
+        # n_emb: Embedding dimension, n_heads: number of heads in attention block
+        super().__init__()
+        head_size = n_emb // n_heads # Head size dynamically calculated based on n_emd:n_heads ratio
+        self.sa = MultiheadAttention(n_heads, head_size)
+        self.ff = FeedForward(n_emb)
+
+    def forward(self, x):
+        x = self.sa(x)
+        return self.ff(x)
