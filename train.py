@@ -13,7 +13,7 @@ from pdb import set_trace as DB
 # Constants
 FILENAME = 'input.txt'
 BATCH_SIZE = 32
-TRAINING_ITERATIONS = 3000
+TRAINING_ITERATIONS = 5000
 EVAL_ITERATIONS = 100
 EVAL_INTERVAL = 200
 LEARNING_RATE = 1e-2
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     print(decode(model.generate(input_test, 500)[0].tolist()))
     
     # Training Model
-    train_model(model, dataTrain)
+    train_model(model, dataTrain, True, dataVal)
 
     # Post-training generation
     print(decode(model.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
