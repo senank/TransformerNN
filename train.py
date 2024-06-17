@@ -1,20 +1,21 @@
 import sys
+from typing import List
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from tiktoken import get_encoding as encode_tok
 
-from model import BigramModel
+from model import BigramModel, BLOCK_SIZE, n_emb
+from pdb import set_trace as DB
 
 # !wget dataset
 
 # Constants
 FILENAME = 'input.txt'
-BLOCK_SIZE = 8
 BATCH_SIZE = 32
-TRAINING_ITERATIONS = 1000
+TRAINING_ITERATIONS = 3000
 EVAL_ITERATIONS = 100
-EVAL_INTERVAL = 100
+EVAL_INTERVAL = 200
 LEARNING_RATE = 1e-2
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -67,7 +68,7 @@ def encode(input: str):
         output.append(STOI[ch])
     return output
 
-def decode(input: str):
+def decode(input: List[int]):
     output = ''
     for i in input:
         output += ITOS[i]
@@ -75,13 +76,14 @@ def decode(input: str):
 
 
 # Training
-def train_model(model, data, eval=False):
+def train_model(model, data, eval=False, dataVal=None):
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     for iteration in range(TRAINING_ITERATIONS):
         x, y = get_minibatch(data)
         logits, loss = model(x, y)
-        if eval and (iteration % 10):
-            print("Iteration {} : Loss = {}".format(iteration, loss))
+        if eval and (iteration % EVAL_INTERVAL == 0):
+            losses = estimate_loss(model, dataTrain, dataVal)
+            print("Iteration {} : Training set Loss = {}, Validation loss = {}".format(iteration, losses['train'], losses['val']))
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
@@ -96,14 +98,14 @@ def estimate_loss(model, dataTrain, dataVal):
             for k in range(EVAL_ITERATIONS):
                 x, y = get_minibatch(dataTrain)
                 logits, loss = model(x, y)
-                losses[k] = loss.item
+                losses[k] = loss.item()
             out[split] = losses.mean()
         else:
             losses = torch.zeros(EVAL_ITERATIONS)
             for k in range(EVAL_ITERATIONS):
                 x, y = get_minibatch(dataVal)
                 logits, loss = model(x, y)
-                losses[k] = loss.item
+                losses[k] = loss.item()
             out[split] = losses.mean()
     model.train()
     return out
@@ -134,7 +136,7 @@ if __name__ == '__main__':
     print(decode(model.generate(input_test, 500)[0].tolist()))
     
     # Training Model
-    train_model(model, dataTrain, eval=False)
+    train_model(model, dataTrain)
 
     # Post-training generation
     print(decode(model.generate(input_test, 500)[0].tolist())) # must index [0] to pluck out from (1, T)
