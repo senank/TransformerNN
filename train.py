@@ -139,7 +139,7 @@ if __name__ == '__main__':
         if seperate_data == "N":
             file_data, vocab_size = load_data()
         else:
-            file_ = input("\nPlease type the filename below (e.g. input.txt, input.csv):\n")
+            file_ = input("\nPlease type the filename below (e.g. input.txt):\n")
             try:
                 file_data, vocab_size = load_data(file_)
             except:
@@ -173,18 +173,36 @@ if __name__ == '__main__':
         test_generation(model, input_test, 1000)
 
         test_val = test_loss(model, dataTest)
-        print("TEST_SET LOSS = {}".format(test_val))
+        print("\nTEST_SET LOSS = {}".format(test_val))
         save_weights = input("\n Would you like to save your trained weights? (Y/N)\n")
         if save_weights == 'Y':
-            weight_name = input("Please name your file (this will have .pth as it's file extension): \n")
+            weight_name = input("\nPlease name your file (e.g. my_weights): \n")
             torch.save(model.state_dict(), '{}.pth'.format(weight_name))
     elif train_or_gen == 'G':
         # Initialize the model
-        file_data, vocab_size = load_data()
+        if input("\nDid you train your own data? (Y/N)") == "Y":
+            file_ = input("\nPlease type the filename below (e.g. input.txt):\n")
+            try:
+                file_data, vocab_size = load_data(file_)
+            except:
+                print("\nError loading dataset... Exiting\n")
+                exit()
+            weights_name = "{}.pth".format(input("\nWhat did you save your weights file as? (no need to include the file extension)\n"))
+        else:
+            weights_name = 'model_weights_3000.pth'
+            file_data, vocab_size = load_data()
+
         model = BigramModel(vocab_size, N_ATTENTION_LAYERS).to(DEVICE)
 
         # Load the weights from the file
-        model.load_state_dict(torch.load('model_weights_3000.pth'))
+        try:
+            model.load_state_dict(torch.load(weights_name))
+        except:
+            print("\nError:\n\
+    1) Ensure the weights you are loading are the ones trained by this model\n\
+    2) Ensure the filename is correct (and no file extension is included)\n")
+            exit()
+        
         input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)\
 
         # Set the model to evaluation mode
