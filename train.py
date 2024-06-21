@@ -14,7 +14,7 @@ from pdb import set_trace as DB
 FILENAME = 'input.txt'
 
 
-TRAINING_ITERATIONS = 5000
+TRAINING_ITERATIONS = 3000
 EVAL_ITERATIONS = 100
 EVAL_INTERVAL = 200
 LEARNING_RATE = 0.5e-3
@@ -78,7 +78,7 @@ def decode(input: List[int]):
 
 # Training
 def train_model(model, data, eval=False, dataVal=None):
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     for iteration in range(TRAINING_ITERATIONS):
         x, y = get_minibatch(data)
         logits, loss = model(x, y)
@@ -111,40 +111,93 @@ def estimate_loss(model, dataTrain, dataVal):
     model.train()
     return out
 
-def test_generation(input_test, output_length):
+# Testing
+def test_loss(model, test_data):
+    model.eval()
+    x, y = get_minibatch(test_data)
+    logits, loss = model(x, y)
+    losses = torch.zeros(1)
+    losses = loss.item()
+    model.train()
+    return losses
+
+def test_generation(model, input_test, output_length):
     print(decode(model.generate(input_test, output_length)[0].tolist())) # must index [0] to pluck out from (1, T)
     print("\n")
 
+
+# Main 
 if __name__ == '__main__':
-    if len(sys.argv) == 1:
+    train_or_gen = input("\nType 'T' for Train, or 'G' for Generate from pre-trained model\n")
+    if train_or_gen not in ['T', 'G']:
+        print("Please input a valid input: 'T' or 'G'\n")
+        exit()
+    
+    
+    if train_or_gen == 'T':
+        seperate_data = input("\nWould you like to use your own data? (Y/N)\n")
+        if seperate_data == "N":
+            file_data, vocab_size = load_data()
+        else:
+            file_ = input("\nPlease type the filename below (e.g. input.txt, input.csv):\n")
+            try:
+                file_data, vocab_size = load_data(file_)
+            except:
+                print("\nError loading dataset... Exiting\n")
+                exit()
+        
+        # Using alternative encoders as easy as:
+        enc = encode_tok('gpt2')
+        # print(enc.decode(enc.encode('hello world')))
+
+        # Divide data
+        data = torch.tensor(encode(file_data), dtype=torch.long)
+        dataTrain, dataVal, dataTest = get_data_sets(data)
+        
+        
+        
+        # Defining Model 
+        model = BigramModel(vocab_size, N_ATTENTION_LAYERS).to(DEVICE)
+        
+        # Pre-training generation
+        print('\n########################\nPRE-training generation:\n########################')
+        input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE) # Define a (1, 1) tensor with value 0 for starting char
+        test_generation(model, input_test, 500)
+
+        # Training Model
+        train_model(model, dataTrain, True, dataVal)
+        print('\n########################\n   Training Phase\n########################')
+
+        # Post-training generation
+        print('\n########################\nPOST-training generation:\n########################')
+        test_generation(model, input_test, 1000)
+
+        test_val = test_loss(model, dataTest)
+        print("TEST_SET LOSS = {}".format(test_val))
+        save_weights = input("\n Would you like to save your trained weights? (Y/N)\n")
+        if save_weights == 'Y':
+            weight_name = input("Please name your file (this will have .pth as it's file extension): \n")
+            torch.save(model.state_dict(), '{}.pth'.format(weight_name))
+    elif train_or_gen == 'G':
+        # Initialize the model
         file_data, vocab_size = load_data()
-    else:
-        file_data, vocab_size = load_data(sys.argv[1])
-    
-    # Using alternative encoders as easy as:
-    enc = encode_tok('gpt2')
-    # print(enc.decode(enc.encode('hello world')))
+        model = BigramModel(vocab_size, N_ATTENTION_LAYERS).to(DEVICE)
 
-    # Divide data
-    data = torch.tensor(encode(file_data), dtype=torch.long)
-    dataTrain, dataVal, dataTest = get_data_sets(data)
-    
-    
-    
-    # Defining Model 
-    model = BigramModel(vocab_size, N_ATTENTION_LAYERS).to(DEVICE)
-    
-    # Pre-training generation
-    print('\n########################\nPRE-training generation:\n########################')
-    input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE) # Define a (1, 1) tensor with value 0 for starting char
-    test_generation(input_test, 500)
+        # Load the weights from the file
+        model.load_state_dict(torch.load('model_weights_3000.pth'))
+        input_test = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)\
 
-    # Training Model
-    train_model(model, dataTrain, True, dataVal)
-
-    # Post-training generation
-    print('\n########################\nPOST-training generation:\n########################')
-    test_generation(input_test, 1000)
+        # Set the model to evaluation mode
+        model.eval()
+        length = input("\nPlease input the number of characters you would like to generate:\n")
+        try:
+            length = int(length)
+        except:
+            print("\nPlease input a valid integer\n")
+            exit()
+        print('\n########################\n      Generating \n########################')
+        test_generation(model, input_test, length)
+        model.train()
     
     
 
