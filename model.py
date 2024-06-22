@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from tiktoken import get_encoding as encode_tok
+import math
+import numpy as np
 
 from pdb import set_trace as DB
 
@@ -16,16 +18,40 @@ DROPOUT = 0.15
 
 #Attention
 N_ATTENTION_LAYERS = 6
-HEAD_COUNT = 5 # n_emb / head_count = 64 dimensions for each head
+HEAD_COUNT = 5 # n_emb / head_count = 64 dimensions for each head 
 
 
 ### MODELS ###
+class PositionalEncoding(nn.Module):
+    def __init__(self, block_size: int, n_emb: int):
+        super().__init__()
+        self.n_emb = n_emb
+        self.block_size = block_size
+        self.dropout = nn.Dropout(DROPOUT)
+
+        pos_enc_table = torch.zeros(block_size, n_emb)
+        pos = torch.arange(block_size, dtype=torch.float).view(-1, 1)
+        div = torch.exp(torch.arange(0, n_emb, 2, dtype=torch.float) * (-math.log(10000)/n_emb))
+        pos_enc_table[:, 0::2] = torch.sin(pos * div)
+        pos_enc_table[:, 1::2] = torch.cos(pos * div)
+        # pos_enc_table = pos_enc_table.unsqueeze(0)
+
+        self.register_buffer('pos_enc', pos_enc_table)
+
+
+    def forward(self, token_embedding):
+        return self.dropout(token_embedding + self.pos_enc[:token_embedding.shape[1], :])
+
 # Main models
 class BigramModel(nn.Module):
     def __init__(self, vocab_size: int, n_sa_layers: int):
         super().__init__()
         self.token_emb_table = nn.Embedding(vocab_size, n_emb)
-        self.position_emb_table = nn.Embedding(BLOCK_SIZE, n_emb)
+        # Old Positional Encoding
+        # self.position_emb_table = nn.Embedding(BLOCK_SIZE, n_emb)
+        
+        # New Positional Encoding
+        self.position_emb_table = PositionalEncoding(BLOCK_SIZE, n_emb)
 
         # # Single head of attention
         # self.sa_heads = AttentionHead(n_emb)
@@ -51,8 +77,13 @@ class BigramModel(nn.Module):
     def forward(self, idx, targets=None):
         # Simple Biagram model doesn't use any @
         token_emb = self.token_emb_table(idx)
-        pos_emb = self.position_emb_table(torch.arange(len(idx[0]), device=DEVICE))
-        x = pos_emb + token_emb
+        
+        # Old position encoding
+        # pos_emb = self.position_emb_table(torch.arange(len(idx[0]), device=DEVICE))
+        # x = pos_emb + token_emb
+
+        # New position encoding
+        x = self.position_emb_table(token_emb)
 
         # # Pass through multi-headed attention block and feedforward layer
         # x = self.sa_heads(x)
@@ -60,6 +91,7 @@ class BigramModel(nn.Module):
 
         # Pass through multiple multi-headed attention blocks
         x = self.sa_blocks(x)
+        
 
         # Pass through language model
         logits = self.lm_head(x)
